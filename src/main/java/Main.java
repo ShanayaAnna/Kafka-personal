@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.OutputStream;
+import java.io.InputStream;
 
 public class Main {
   public static void main(String[] args){
@@ -21,9 +22,14 @@ public class Main {
       serverSocket.setReuseAddress(true);
       // Wait for connection from client.
       clientSocket = serverSocket.accept();
+      InputStream in = clientSocket.getInputStream();
+      byte[] message_size = in.readNBytes(4);
+      byte[] request_api_key = in.readNBytes(2);
+      byte[] request_api_version = in.readNBytes(2);
+      byte[] correlation_id = in.readNBytes(4);
       OutputStream out = clientSocket.getOutputStream();
-      out.write(new byte[] {0, 1, 2, 3});
-      out.write(new byte[] {0, 0, 0, 7});
+      out.write(message_size);
+      out.write(correlation_id);
     } catch (IOException e) {
       System.out.println("IOException: " + e.getMessage());
     } finally {

@@ -1,6 +1,7 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Arrays;
 import java.io.OutputStream;
 import java.io.InputStream;
 
@@ -20,16 +21,26 @@ public class Main {
       // Since the tester restarts your program quite often, setting SO_REUSEADDR
       // ensures that we don't run into 'Address already in use' errors
       serverSocket.setReuseAddress(true);
+
       // Wait for connection from client.
       clientSocket = serverSocket.accept();
+
       InputStream in = clientSocket.getInputStream();
       byte[] message_size = in.readNBytes(4);
       byte[] request_api_key = in.readNBytes(2);
       byte[] request_api_version = in.readNBytes(2);
       byte[] correlation_id = in.readNBytes(4);
+
       OutputStream out = clientSocket.getOutputStream();
+
       out.write(message_size);
       out.write(correlation_id);
+
+      if (!Arrays.equals(request_api_version, new byte[]{0x00, 0x04})) {
+        out.write(new byte[] {0x00, 0x23});
+      }
+      else out.write(request_api_version);
+      
     } catch (IOException e) {
       System.out.println("IOException: " + e.getMessage());
     } finally {

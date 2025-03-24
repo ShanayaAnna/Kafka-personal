@@ -1,9 +1,11 @@
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.io.OutputStream;
 import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
 
 public class Main {
   public static void main(String[] args){
@@ -18,9 +20,7 @@ public class Main {
 
     try {
       serverSocket = new ServerSocket(port);
-      // Since the tester restarts your program quite often, setting SO_REUSEADDR
-      // ensures that we don't run into 'Address already in use' errors
-      serverSocket.setReuseAddress(true);
+      serverSocket.setReuseAddress(true); // Since the tester restarts your program quite often, setting SO_REUSEADDR ensures that we don't run into 'Address already in use' errors
 
       // Wait for connection from client.
       clientSocket = serverSocket.accept();
@@ -32,15 +32,31 @@ public class Main {
       byte[] correlation_id = in.readNBytes(4);
 
       OutputStream out = clientSocket.getOutputStream();
+      ByteArrayOutputStream bout = new ByteArrayOutputStream();
 
-      out.write(message_size);
-      out.write(correlation_id);
+      bout.write(correlation_id);
 
-      if (!Arrays.equals(request_api_version, new byte[]{0x00, 0x04})) {
-        out.write(new byte[] {0x00, 0x23});
+      int version = ByteBuffer.wrap(request_api_version).getShort();
+      if (version<0 || version>4) bout.write(new byte[] {0,35});
+      else {
+        bout.write(new byte[] {0, 0});       // error code
+        bout.write(2);                       // array size + 1
+        bout.write(new byte[] {0, 18});      // api_key
+        bout.write(new byte[] {0, 3});       // min version
+        bout.write(new byte[] {0, 4});       // max version
+        bout.write(0);                       // tagged fields
+        bout.write(new byte[] {0, 0, 0, 0}); // throttle time
+        bout.write(0); // tagged fields
       }
-      else out.write(request_api_version);
-      
+
+      int size = bout.size();
+      byte[] sizeBytes = ByteBuffer.allocate(4).putInt(size).array();
+      var response = bout.toByteArray();
+      System.out.println(Arrays.toString(sizeBytes));
+      System.out.println(Arrays.toString(response));
+      out.write(sizeBytes);
+      out.write(response);
+
     } catch (IOException e) {
       System.out.println("IOException: " + e.getMessage());
     } finally {

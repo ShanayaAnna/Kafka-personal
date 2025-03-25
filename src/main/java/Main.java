@@ -46,10 +46,10 @@ public class Main {
           bout.write(new byte[]{0, 35}); // Error code
         } else {
           bout.write(new byte[]{0, 0});       // Error code
-          bout.write(2);                    // Array size + 1
-          bout.write(request_api_key);        // Api Key
-          bout.write(new byte[]{0, 3});       // Min Version
-          bout.write(request_api_version);    // Max Version
+          bout.write(3);                    // Array size + 1
+          bout.write(new byte[]{0, 18, 0, 0, 0, 4});        // APIVersions Key | Min Version | Max Version
+          bout.write(0);                    // Tagged fields
+          bout.write(new byte[]{0, 75, 0, 0, 0, 0});        // DescribeTopicPartitions Key | Min Version | Max Version
           bout.write(0);                    // Tagged fields
           bout.write(new byte[]{0, 0, 0, 0}); // Throttle time
           bout.write(0);                    // Tagged fields

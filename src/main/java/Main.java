@@ -10,20 +10,26 @@ import java.io.ByteArrayOutputStream;
 public class Main {
   public static void main(String[] args){
     System.err.println("Logs from your program will appear here!");
-    ServerSocket serverSocket = null;
-    Socket clientSocket = null;
     int port = 9092;
 
-    try {
-      serverSocket = new ServerSocket(port);
+    try(ServerSocket serverSocket = new ServerSocket(port)) {
       serverSocket.setReuseAddress(true);
 
-      clientSocket = serverSocket.accept();
-
       while (true) {
-        InputStream in = clientSocket.getInputStream();
-        OutputStream out = clientSocket.getOutputStream();
+        Socket clientSocket = serverSocket.accept();
+        System.err.println("New client connected");
 
+        new Thread(() -> handleClient(clientSocket)).start();
+
+      }
+    } catch (IOException e) {
+      System.err.println("IOException: "+e.getMessage());
+    }
+
+  }
+  private static void handleClient(Socket clientSocket) {
+    try(InputStream in = clientSocket.getInputStream(); OutputStream out = clientSocket.getOutputStream()){
+      while (true) {
         byte[] message_size = in.readNBytes(4);
 
         // Read the entire request based on message size
@@ -37,16 +43,16 @@ public class Main {
 
         int version = ByteBuffer.wrap(request_api_version).getShort();
         if (version < 0 || version > 4) {
-          bout.write(new byte[]{0, 35});
+          bout.write(new byte[]{0, 35}); // Error code
         } else {
-          bout.write(new byte[]{0, 0});
-          bout.write(2);
-          bout.write(new byte[]{0, 18});
-          bout.write(new byte[]{0, 3});
-          bout.write(new byte[]{0, 4});
-          bout.write(0);
-          bout.write(new byte[]{0, 0, 0, 0});
-          bout.write(0);
+          bout.write(new byte[]{0, 0});       // Error code
+          bout.write(2);                    // Array size + 1
+          bout.write(request_api_key);        // Api Key
+          bout.write(new byte[]{0, 3});       // Min Version
+          bout.write(request_api_version);    // Max Version
+          bout.write(0);                    // Tagged fields
+          bout.write(new byte[]{0, 0, 0, 0}); // Throttle time
+          bout.write(0);                    // Tagged fields
         }
 
         int response_size = bout.size();

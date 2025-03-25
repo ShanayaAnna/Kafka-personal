@@ -9,61 +9,57 @@ import java.io.ByteArrayOutputStream;
 
 public class Main {
   public static void main(String[] args){
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
     System.err.println("Logs from your program will appear here!");
-
-    // Uncomment this block to pass the first stage
-    
     ServerSocket serverSocket = null;
     Socket clientSocket = null;
     int port = 9092;
 
     try {
       serverSocket = new ServerSocket(port);
-      serverSocket.setReuseAddress(true); // Since the tester restarts your program quite often, setting SO_REUSEADDR ensures that we don't run into 'Address already in use' errors
+      serverSocket.setReuseAddress(true);
 
-      // Wait for connection from client.
       clientSocket = serverSocket.accept();
 
-      InputStream in = clientSocket.getInputStream();
-      byte[] message_size = in.readNBytes(4);
-      byte[] request_api_key = in.readNBytes(2);
-      byte[] request_api_version = in.readNBytes(2);
-      byte[] correlation_id = in.readNBytes(4);
+      while (true) {
+        InputStream in = clientSocket.getInputStream();
+        OutputStream out = clientSocket.getOutputStream();
 
-      OutputStream out = clientSocket.getOutputStream();
-      ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        byte[] message_size = in.readNBytes(4);
 
-      bout.write(correlation_id);
+        // Read the entire request based on message size
+        byte[] request = in.readNBytes(ByteBuffer.wrap(message_size).getInt());
+        byte[] request_api_key = Arrays.copyOfRange(request, 0, 2);
+        byte[] request_api_version = Arrays.copyOfRange(request, 2, 4);
+        byte[] correlation_id = Arrays.copyOfRange(request, 4, 8);
 
-      int version = ByteBuffer.wrap(request_api_version).getShort();
-      if (version<0 || version>4) bout.write(new byte[] {0,35});
-      else {
-        bout.write(new byte[] {0, 0});       // error code
-        bout.write(2);                       // array size + 1
-        bout.write(new byte[] {0, 18});      // api_key
-        bout.write(new byte[] {0, 3});       // min version
-        bout.write(new byte[] {0, 4});       // max version
-        bout.write(0);                       // tagged fields
-        bout.write(new byte[] {0, 0, 0, 0}); // throttle time
-        bout.write(0); // tagged fields
+        ByteArrayOutputStream bout = new ByteArrayOutputStream();
+        bout.write(correlation_id);
+
+        int version = ByteBuffer.wrap(request_api_version).getShort();
+        if (version < 0 || version > 4) {
+          bout.write(new byte[]{0, 35});
+        } else {
+          bout.write(new byte[]{0, 0});
+          bout.write(2);
+          bout.write(new byte[]{0, 18});
+          bout.write(new byte[]{0, 3});
+          bout.write(new byte[]{0, 4});
+          bout.write(0);
+          bout.write(new byte[]{0, 0, 0, 0});
+          bout.write(0);
+        }
+
+        int response_size = bout.size();
+        byte[] response_size_bytes = ByteBuffer.allocate(4).putInt(response_size).array();
+        out.write(response_size_bytes);
+        out.write(bout.toByteArray());
       }
-
-      int size = bout.size();
-      byte[] sizeBytes = ByteBuffer.allocate(4).putInt(size).array();
-      var response = bout.toByteArray();
-      System.out.println(Arrays.toString(sizeBytes));
-      System.out.println(Arrays.toString(response));
-      out.write(sizeBytes);
-      out.write(response);
 
     } catch (IOException e) {
       System.out.println("IOException: " + e.getMessage());
     } finally {
       try {
-        if (clientSocket != null) {
-          clientSocket.close();
-        }
+        if (clientSocket != null) clientSocket.close();
       } catch (IOException e) {
         System.out.println("IOException: " + e.getMessage());
       }
